@@ -3,18 +3,25 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/gorilla/mux"
 )
 
 const (
 	Version = "0.0.1"
+	TempDir = "temp/"
 )
 
 func main() {
 	log.Println("Starting convert version", Version)
 
-	err := DatabaseInit("127.0.0.1", 3306, "root", "root", "dreamvids")
+	err := os.MkdirAll(TempDir, 0755)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = DatabaseInit("127.0.0.1", 3306, "root", "root", "dreamvids")
 	if err != nil {
 		log.Fatal("Database initialization: ", err)
 	}

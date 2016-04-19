@@ -49,10 +49,17 @@ func DatabaseVideoExists(id int) (bool, error) {
 }
 
 func DatabaseInsertConversion(c *Conversion) error {
-	_, err := Database.Exec("INSERT INTO dv_conversion (video_id, format_id, status_id) VALUES (?, ?, ?)", c.VideoID, c.FormatID, c.StatusID)
+	res, err := Database.Exec("INSERT INTO dv_conversion (video_id, format_id, status_id) VALUES (?, ?, ?)", c.VideoID, c.FormatID, c.StatusID)
 	if err != nil {
 		return err
 	}
+
+	id, err := res.LastInsertId()
+	if err != nil {
+		return err
+	}
+
+	c.ID = int(id)
 
 	return nil
 }
@@ -99,7 +106,7 @@ func DatabaseGetVideoConversions(vid int) ([]Conversion, error) {
 }
 
 func DatabaseUpdateConversion(c *Conversion) error {
-	_, err := Database.Exec("REPLACE INTO dv_conversion (video_id, format_id, status_id) VALUES (?, ?, ?) WHERE id = ?", c.VideoID, c.FormatID, c.StatusID, c.ID)
+	_, err := Database.Exec("REPLACE INTO dv_conversion VALUES (?, ?, ?, ?)", c.ID, c.VideoID, c.FormatID, c.StatusID)
 	if err != nil {
 		return err
 	}

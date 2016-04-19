@@ -1,9 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
@@ -36,8 +39,17 @@ func HandleConvert(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(cs) == 0 {
-		c1 := NewConversion(id, FormatWebM, StatusConverting)
-		c2 := NewConversion(id, FormatMp4, StatusConverting)
+		file, err := os.Create(TempDir + strconv.Itoa(id) + ".video")
+		if err != nil {
+			SendErr(w, r, http.StatusInternalServerError, err)
+			return
+		}
+
+		io.Copy(file, r.Body)
+		file.Close()
+
+		c1 := NewConversion(id, FormatWebM, StatusError)
+		c2 := NewConversion(id, FormatMp4, StatusError)
 
 		err = DatabaseInsertConversion(&c1)
 		if err != nil {
@@ -50,6 +62,28 @@ func HandleConvert(w http.ResponseWriter, r *http.Request) {
 			SendErr(w, r, http.StatusInternalServerError, err)
 			return
 		}
+
+		cs = make([]Conversion, 2)
+		cs[0] = c1
+		cs[1] = c2
+
+		err = cs[0].Start()
+		if err != nil {
+			SendErr(w, r, http.StatusInternalServerError, err)
+			return
+		}
+
+		err = cs[1].Start()
+		if err != nil {
+			SendErr(w, r, http.StatusInternalServerError, err)
+			return
+		}
+	}
+
+	err = json.NewEncoder(w).Encode(cs)
+	if err != nil {
+		SendErr(w, r, http.StatusInternalServerError, err)
+		return
 	}
 }
 

@@ -1,2 +1,7 @@
+temp/
+
+*.mp4
+*.webm
+*.video
 *.swo
 *.swp

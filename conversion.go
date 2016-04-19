@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -13,59 +12,75 @@ const (
 	FormatWebM = 1
 	FormatMp4  = 2
 
+	Resolution360p  = 1
+	Resolution720p  = 2
+	Resolution1080p = 3
+
 	StatusError      = 1
 	StatusConverting = 2
 	StatusAvailable  = 3
 )
 
 type Conversion struct {
-	ID       int `json:"id"`
-	VideoID  int `json:"video_id"`
-	FormatID int `json:"format_id"`
-	StatusID int `json:"status_id"`
+	ID           int `json:"id"`
+	VideoID      int `json:"video_id"`
+	FormatID     int `json:"format_id"`
+	ResolutionID int `json:"resolution_id"`
+	StatusID     int `json:"status_id"`
 }
 
-func NewConversion(videoId, formatId, statusId int) Conversion {
-	return Conversion{0, videoId, formatId, statusId}
+func NewConversion(videoId, formatId, resolutionId, statusId int) Conversion {
+	return Conversion{0, videoId, formatId, resolutionId, statusId}
 }
 
 func (c *Conversion) Start() error {
 	var format string
+	var resolution string
+	var bitrate string
 	var dst string
 	var cmd *exec.Cmd
 
 	src := TempDir + strconv.Itoa(c.VideoID) + ".video"
 
+	switch c.ResolutionID {
+	case Resolution360p:
+		resolution = "640x360"
+		bitrate = "1000k"
+		break
+	case Resolution720p:
+		resolution = "1280x720"
+		bitrate = "5000k"
+		break
+	case Resolution1080p:
+		resolution = "1920x1080"
+		bitrate = "8000k"
+		break
+	default:
+		return fmt.Errorf("Invalid resolution")
+	}
+
 	switch c.FormatID {
 	case FormatWebM:
 		format = "webm"
-		dst = TempDir + strconv.Itoa(c.VideoID) + ".webm"
-		cmd = exec.Command("ffmpeg", "-loglevel", "error", "-i", src, "-c:v", "libvpx", "-c:a", "libvorbis", "-f", format, dst)
+		dst = TempDir + strconv.Itoa(c.VideoID) + "." + resolution + ".webm"
+		cmd = exec.Command("ffmpeg", "-loglevel", "warning", "-i", src, "-b:v", bitrate, "-b:a", "128k", "-c:v", "libvpx", "-c:a", "libvorbis", "-f", format, "-s", resolution, "-framerate", "30", dst)
 		break
 	case FormatMp4:
 		format = "mp4"
-		dst = TempDir + strconv.Itoa(c.VideoID) + ".mp4"
-		cmd = exec.Command("ffmpeg", "-loglevel", "error", "-i", src, "-c:v", "libx264", "-c:a", "libmp3lame", "-f", format, dst)
+		dst = TempDir + strconv.Itoa(c.VideoID) + "." + resolution + ".mp4"
+		cmd = exec.Command("ffmpeg", "-loglevel", "warning", "-i", src, "-b:v", bitrate, "-b:a", "128k", "-c:v", "libx264", "-c:a", "libmp3lame", "-f", format, "-s", resolution, "-framerate", "30", dst)
 		break
 	default:
 		return fmt.Errorf("Invalid format")
 	}
 
-	f, err := os.Create(dst + ".ffmpeg.log")
+	f, err := os.Create(dst + ".ffmpeg")
 	if err != nil {
 		return err
 	}
 
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return err
-	}
-
-	go func() {
-		io.Copy(f, stdout)
-		f.Close()
-		stdout.Close()
-	}()
+	cmd.Stdout = f
+	cmd.Stderr = f
 
 	c.StatusID = StatusConverting
 	err = DatabaseUpdateConversion(c)
@@ -74,6 +89,10 @@ func (c *Conversion) Start() error {
 	}
 
 	go func() {
+		defer f.Close()
+
+		log.Printf("Starting conversion %d (src: %s, dst: %s)\n", c.ID, src, dst)
+
 		err := cmd.Run()
 		if err != nil {
 			c.StatusID = StatusError

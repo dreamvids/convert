@@ -48,8 +48,11 @@ func HandleConvert(w http.ResponseWriter, r *http.Request) {
 		io.Copy(file, r.Body)
 		file.Close()
 
-		c1 := NewConversion(id, FormatWebM, StatusError)
-		c2 := NewConversion(id, FormatMp4, StatusError)
+		c1 := NewConversion(id, FormatWebM, Resolution360p, StatusError)
+		c2 := NewConversion(id, FormatWebM, Resolution720p, StatusError)
+
+		c3 := NewConversion(id, FormatMp4, Resolution360p, StatusError)
+		c4 := NewConversion(id, FormatMp4, Resolution720p, StatusError)
 
 		err = DatabaseInsertConversion(&c1)
 		if err != nil {
@@ -63,9 +66,23 @@ func HandleConvert(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		cs = make([]Conversion, 2)
+		err = DatabaseInsertConversion(&c3)
+		if err != nil {
+			SendErr(w, r, http.StatusInternalServerError, err)
+			return
+		}
+
+		err = DatabaseInsertConversion(&c4)
+		if err != nil {
+			SendErr(w, r, http.StatusInternalServerError, err)
+			return
+		}
+
+		cs = make([]Conversion, 4)
 		cs[0] = c1
 		cs[1] = c2
+		cs[2] = c3
+		cs[3] = c4
 
 		err = cs[0].Start()
 		if err != nil {
@@ -74,6 +91,18 @@ func HandleConvert(w http.ResponseWriter, r *http.Request) {
 		}
 
 		err = cs[1].Start()
+		if err != nil {
+			SendErr(w, r, http.StatusInternalServerError, err)
+			return
+		}
+
+		err = cs[2].Start()
+		if err != nil {
+			SendErr(w, r, http.StatusInternalServerError, err)
+			return
+		}
+
+		err = cs[3].Start()
 		if err != nil {
 			SendErr(w, r, http.StatusInternalServerError, err)
 			return

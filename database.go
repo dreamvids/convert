@@ -49,7 +49,7 @@ func DatabaseVideoExists(id int) (bool, error) {
 }
 
 func DatabaseInsertConversion(c *Conversion) error {
-	res, err := Database.Exec("INSERT INTO dv_conversion (video_id, format_id, status_id) VALUES (?, ?, ?)", c.VideoID, c.FormatID, c.StatusID)
+	res, err := Database.Exec("INSERT INTO dv_conversion (video_id, format_id, resolution_id, status_id) VALUES (?, ?, ?, ?)", c.VideoID, c.FormatID, c.ResolutionID, c.StatusID)
 	if err != nil {
 		return err
 	}
@@ -75,7 +75,7 @@ func DatabaseGetConversion(id int) (Conversion, error) {
 	defer res.Close()
 
 	if res.Next() {
-		err = res.Scan(&c.ID, &c.VideoID, &c.FormatID, &c.StatusID)
+		err = res.Scan(&c.ID, &c.VideoID, &c.FormatID, &c.ResolutionID, &c.StatusID)
 		if err != nil {
 			return c, err
 		}
@@ -94,7 +94,7 @@ func DatabaseGetVideoConversions(vid int) ([]Conversion, error) {
 	for res.Next() {
 		var c Conversion
 
-		err = res.Scan(&c.ID, &c.VideoID, &c.FormatID, &c.StatusID)
+		err = res.Scan(&c.ID, &c.VideoID, &c.FormatID, &c.ResolutionID, &c.StatusID)
 		if err != nil {
 			return nil, err
 		}
@@ -106,7 +106,7 @@ func DatabaseGetVideoConversions(vid int) ([]Conversion, error) {
 }
 
 func DatabaseUpdateConversion(c *Conversion) error {
-	_, err := Database.Exec("REPLACE INTO dv_conversion VALUES (?, ?, ?, ?)", c.ID, c.VideoID, c.FormatID, c.StatusID)
+	_, err := Database.Exec("REPLACE INTO dv_conversion VALUES (?, ?, ?, ?, ?)", c.ID, c.VideoID, c.FormatID, c.ResolutionID, c.StatusID)
 	if err != nil {
 		return err
 	}

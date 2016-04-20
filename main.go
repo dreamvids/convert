@@ -4,24 +4,58 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/gorilla/mux"
 )
 
 const (
 	Version = "0.0.1"
+)
+
+var (
 	TempDir = "temp/"
 )
 
 func main() {
 	log.Println("Starting convert version", Version)
 
-	err := os.MkdirAll(TempDir, 0755)
+	tempDir := os.Getenv("DV_CONVERT_TEMP")
+	if len(tempDir) > 0 {
+		TempDir = tempDir
+	}
+
+	dbHost := os.Getenv("DV_DB_HOST")
+	if len(dbHost) == 0 {
+		dbHost = "db"
+	}
+
+	dbPort, err := strconv.Atoi(os.Getenv("DV_DB_PORT"))
+	if err != nil || dbPort == 0 {
+		dbPort = 3306
+	}
+
+	dbUser := os.Getenv("DV_DB_USER")
+	if len(dbUser) == 0 {
+		dbUser = "root"
+	}
+
+	dbPass := os.Getenv("DV_DB_PASSWORD")
+	if len(dbPass) == 0 {
+		dbPass = "root"
+	}
+
+	dbName := os.Getenv("DV_DB_NAME")
+	if len(dbHost) == 0 {
+		dbName = "dreamvids"
+	}
+
+	err = os.MkdirAll(TempDir, 0755)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	err = DatabaseInit("127.0.0.1", 3306, "root", "root", "dreamvids")
+	err = DatabaseInit(dbHost, dbPort, dbUser, dbPass, dbName)
 	if err != nil {
 		log.Fatal("Database initialization: ", err)
 	}

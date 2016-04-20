@@ -34,45 +34,73 @@ func NewConversion(videoId, formatId, resolutionId, statusId int) *Conversion {
 }
 
 func (c *Conversion) Start() error {
-	var format string
 	var resolution string
-	var bitrate string
+	var format string
 	var dst string
 	var cmd *exec.Cmd
 
 	src := TempDir + strconv.Itoa(c.VideoID) + ".video"
+	opts := make([]string, 19)
+	opts[0] = "-loglevel"
+	opts[1] = "warning"
+	opts[2] = "-i"
+	opts[3] = src
+	opts[4] = "-b:a"
+	opts[5] = "128k"
+	opts[6] = "-framerate"
+	opts[7] = "30"
+	opts[8] = "-f"
+
+	switch c.FormatID {
+	case FormatWebM:
+		format = "webm"
+		opts[9] = "webm"
+		opts[10] = "-c:a"
+		opts[11] = "libvorbis"
+		opts[12] = "-c:v"
+		opts[13] = "libvpx"
+		break
+	case FormatMp4:
+		format = "mp4"
+		opts[9] = "mp4"
+		opts[10] = "-c:a"
+		opts[11] = "libmp3lame"
+		opts[12] = "-c:v"
+		opts[13] = "libx264"
+		break
+	default:
+		return fmt.Errorf("Invalid format")
+	}
 
 	switch c.ResolutionID {
 	case Resolution360p:
-		resolution = "640x360"
-		bitrate = "1000k"
+		resolution = "360p"
+		opts[14] = "-b:v"
+		opts[15] = "1000k"
+		opts[16] = "-s"
+		opts[17] = "640x360"
 		break
 	case Resolution720p:
-		resolution = "1280x720"
-		bitrate = "5000k"
+		resolution = "720p"
+		opts[14] = "-b:v"
+		opts[15] = "5000k"
+		opts[16] = "-s"
+		opts[17] = "1280x720"
 		break
 	case Resolution1080p:
-		resolution = "1920x1080"
-		bitrate = "8000k"
+		resolution = "1080p"
+		opts[14] = "-b:v"
+		opts[15] = "8000k"
+		opts[16] = "-s"
+		opts[17] = "1920x1080"
 		break
 	default:
 		return fmt.Errorf("Invalid resolution")
 	}
 
-	switch c.FormatID {
-	case FormatWebM:
-		format = "webm"
-		dst = TempDir + strconv.Itoa(c.VideoID) + "." + resolution + ".webm"
-		cmd = exec.Command("ffmpeg", "-loglevel", "warning", "-i", src, "-b:v", bitrate, "-b:a", "128k", "-c:v", "libvpx", "-c:a", "libvorbis", "-f", format, "-s", resolution, "-framerate", "30", dst)
-		break
-	case FormatMp4:
-		format = "mp4"
-		dst = TempDir + strconv.Itoa(c.VideoID) + "." + resolution + ".mp4"
-		cmd = exec.Command("ffmpeg", "-loglevel", "warning", "-i", src, "-b:v", bitrate, "-b:a", "128k", "-c:v", "libx264", "-c:a", "libmp3lame", "-f", format, "-s", resolution, "-framerate", "30", dst)
-		break
-	default:
-		return fmt.Errorf("Invalid format")
-	}
+	dst = TempDir + strconv.Itoa(c.VideoID) + "." + resolution + "." + format
+	opts[18] = dst
+	cmd = exec.Command("ffmpeg", opts...)
 
 	f, err := os.Create(dst + ".ffmpeg")
 	if err != nil {

@@ -29,8 +29,8 @@ type Conversion struct {
 	StatusID     int `json:"status_id"`
 }
 
-func NewConversion(videoId, formatId, resolutionId, statusId int) Conversion {
-	return Conversion{0, videoId, formatId, resolutionId, statusId}
+func NewConversion(videoId, formatId, resolutionId, statusId int) *Conversion {
+	return &Conversion{0, videoId, formatId, resolutionId, statusId}
 }
 
 func (c *Conversion) Start() error {

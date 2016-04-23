@@ -18,7 +18,8 @@ const (
 
 	StatusError      = 1
 	StatusConverting = 2
-	StatusAvailable  = 3
+	StatusMoving     = 3
+	StatusAvailable  = 4
 )
 
 type Conversion struct {
@@ -37,7 +38,7 @@ func (c *Conversion) Start() error {
 	var resolution string
 	var format string
 	var dst string
-	var cmd *exec.Cmd
+	var ffmpeg *exec.Cmd
 
 	src := TempDir + strconv.Itoa(c.VideoID) + ".video"
 	opts := make([]string, 19)
@@ -100,15 +101,30 @@ func (c *Conversion) Start() error {
 
 	dst = TempDir + strconv.Itoa(c.VideoID) + "." + resolution + "." + format
 	opts[18] = dst
-	cmd = exec.Command("ffmpeg", opts...)
 
+	ffmpeg = exec.Command("ffmpeg", opts...)
 	f, err := os.Create(dst + ".ffmpeg")
 	if err != nil {
 		return err
 	}
 
-	cmd.Stdout = f
-	cmd.Stderr = f
+	ffmpeg.Stdout = f
+	ffmpeg.Stderr = f
+
+	user, srv, path, err := DatabaseGetStorage()
+	if err != nil {
+		return err
+	}
+
+	scpdst := fmt.Sprintf("%s@%s:%s/%s.%s", user, srv, path, strconv.Itoa(c.VideoID), format)
+	scp := exec.Command("scp", dst, scpdst)
+	ff, err := os.Create(dst + ".scp")
+	if err != nil {
+		return err
+	}
+
+	scp.Stdout = ff
+	scp.Stderr = ff
 
 	c.StatusID = StatusConverting
 	err = DatabaseUpdateConversion(c)
@@ -118,21 +134,37 @@ func (c *Conversion) Start() error {
 
 	go func() {
 		defer f.Close()
+		defer ff.Close()
 
 		log.Printf("Starting conversion %d (src: %s, dst: %s)\n", c.ID, src, dst)
 
-		err := cmd.Run()
+		err := ffmpeg.Run()
 		if err != nil {
 			c.StatusID = StatusError
 			log.Printf("Failed conversion %d (src: %s, dst: %s): %s\n", c.ID, src, dst, err)
 		} else {
-			c.StatusID = StatusAvailable
-			log.Printf("Finished conversion %d (src: %s, dst: %s)\n", c.ID, src, dst)
+			c.StatusID = StatusMoving
+			log.Printf("Finished conversion %d (src: %s, dst: %s), moving\n", c.ID, src, dst)
+
+			err = DatabaseUpdateConversion(c)
+			if err != nil {
+				log.Println("Can not save conversion status: database:", err)
+				return
+			}
+
+			err = scp.Run()
+			if err != nil {
+				c.StatusID = StatusError
+				log.Printf("Can not move conversion %d (dst: %s): %s\n", c.ID, scpdst, err)
+			} else {
+				c.StatusID = StatusAvailable
+				log.Printf("Moved conversion %d (dst: %s), all done\n", c.ID, scpdst)
+			}
 		}
 
 		err = DatabaseUpdateConversion(c)
 		if err != nil {
-			log.Println("Can not finish conversion: database:", err)
+			log.Println("Can not save conversion status: database:", err)
 			return
 		}
 	}()

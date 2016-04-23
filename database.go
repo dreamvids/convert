@@ -26,6 +26,28 @@ func DatabaseInit(host string, port int, user, password, name string) error {
 	return nil
 }
 
+func DatabaseGetStorage() (string, string, string, error) {
+	var user string
+	var server string
+	var path string
+
+	res, err := Database.Query("SELECT server, user, path FROM dv_storage LIMIT 1")
+	if err != nil {
+		return user, server, path, err
+	}
+
+	defer res.Close()
+
+	if res.Next() {
+		err = res.Scan(&server, &user, &path)
+		if err != nil {
+			return user, server, path, err
+		}
+	}
+
+	return user, server, path, nil
+}
+
 func DatabaseVideoExists(id int) (bool, error) {
 	res, err := Database.Query("SELECT EXISTS(SELECT id FROM dv_video WHERE id = ?)", id)
 	if err != nil {

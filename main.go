@@ -46,7 +46,7 @@ func main() {
 	}
 
 	dbName := os.Getenv("DV_DB_NAME")
-	if len(dbHost) == 0 {
+	if len(dbName) == 0 {
 		dbName = "dreamvids"
 	}
 
